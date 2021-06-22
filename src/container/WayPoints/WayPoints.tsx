@@ -1,9 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import _ from "lodash";
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlayCircle } from "@fortawesome/free-regular-svg-icons";
-
 import styles from "./WayPoints.module.scss";
 
 const WayPoints = ({ data }) => {
@@ -11,8 +8,33 @@ const WayPoints = ({ data }) => {
 
   const [showing, setShowing] = useState([]);
 
-  const dataByEpisode = (flatData: []) => {
-    const grouped = _.groupBy(flatData, (step) => {
+  const [groupedData, setGroupedData]= useState({});
+
+  type IndivisualWayPoint = {
+    X: string,
+    Y: string,
+    action: string,
+    all_wheels_on_track: boolean,
+    closest_waypoint: string,
+done: number,
+episode: number,
+episode_status: string,
+pause_duration: string,
+progress: boolean,
+reward: string,
+steer:string,
+steps: number,
+throttle: string,
+track_len: number,
+tstamp:string,
+yaw:string
+  }
+  type EpisodeData = {
+    index: IndivisualWayPoint[]
+  }
+
+  const dataByEpisode = (flatData: []):EpisodeData => {
+    const grouped: EpisodeData = _.groupBy(flatData, (step) => {
       return step.episode;
     });
     return grouped;
@@ -58,17 +80,31 @@ const WayPoints = ({ data }) => {
 
   const toggleRuns = (index) => {
     let newShowingState = [...showing];
-    newShowingState[index] = showing[index] ? false : true;
+    newShowingState[index] = showing[index] === true ? false : true;
     setShowing(newShowingState);
   };
 
+  // update grouped or mapped data when new data comes in
   useEffect(() => {
-    const groupedData = dataByEpisode(data);
+    setGroupedData( dataByEpisode(data));
+
+    let initialShowing = []
+    Object.keys(dataByEpisode(data)).forEach((key, i) => {
+      initialShowing[i] = true
+    });
+    setShowing(initialShowing)
+    setCanvasSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", () => {
+      setCanvasSize({ width: window.innerWidth, height: window.innerHeight });
+    });
+  }, [data]);
+
+  // redraw canvas with showing or data changed
+  useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
     let frameCount = 0;
-    let animationFrameId;
-
+    let animationFrameId: number;
     //Our draw came here
     const render = () => {
       frameCount++;
@@ -77,16 +113,10 @@ const WayPoints = ({ data }) => {
     };
     render();
 
-    setCanvasSize({ width: window.innerWidth, height: window.innerHeight });
-
-    window.addEventListener("resize", () => {
-      setCanvasSize({ width: window.innerWidth, height: window.innerHeight });
-    });
-
     return () => {
       window.cancelAnimationFrame(animationFrameId);
     };
-  }, [data, showing]);
+},[groupedData,showing,canvasSize]);
 
   return (
     <div>
@@ -99,13 +129,11 @@ const WayPoints = ({ data }) => {
       <div className={styles.gui}>
         {Object.keys(dataByEpisode(data)).map((key, i) => (
           <div
-            className={`${styles.button} ${
-              showing[i] === false ? styles.off : null
-            }`}
+            className={`${styles.button} ${showing[i] === false ? styles.off : null
+              }`}
             onClick={() => toggleRuns(i)}
             key={i}
           >
-            <FontAwesomeIcon icon={faPlayCircle} />
             Run {i + 1}
           </div>
         ))}
